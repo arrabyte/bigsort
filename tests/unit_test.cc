@@ -54,6 +54,17 @@ static std::vector<seastar::sstring> test_pattern_sorted_set({
     "algorithms and thus applicable in the external mem",
     "slower external memory, usually a hard disk drive"});
 
+void test_handle_exception(std::exception_ptr e) {
+    try {
+        if (e)
+            std::rethrow_exception(e);
+
+    } catch(const std::exception& e) {
+        std::cout << "Caught exception \"" << e.what() << "\"\n";
+    }
+    BOOST_TEST(false);
+}
+
 using namespace sort_algorithm;
 using namespace file_utils;
 
@@ -107,13 +118,7 @@ BOOST_AUTO_TEST_CASE( test_internal_sort ) {
                 }
             });
         }).handle_exception([](std::exception_ptr e) {
-            try {
-                if (e) {
-                    std::rethrow_exception(e);
-                }
-            } catch(const std::exception& e) {
-                std::cout << "Caught exception \"" << e.what() << "\"\n";
-             }
+            test_handle_exception(e);
         });
     });
 }
@@ -143,6 +148,8 @@ BOOST_AUTO_TEST_CASE( test_external_sort ) {
                     });
                 });
             });
+        }).handle_exception([](std::exception_ptr e) {
+            test_handle_exception(e);
         });
     });
 }
@@ -157,6 +164,8 @@ BOOST_AUTO_TEST_CASE(test_read_blocks_from_file) {
             return read_blocks_from_file(fname, [](blocks_ptr &&x, int block_index, int blocks_tot){
                 BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_unsorted[block_index].size(), test_pattern_unsorted[block_index].begin()));
             });
+        }).handle_exception([](std::exception_ptr e) {
+            test_handle_exception(e);
         });
     });
 }
