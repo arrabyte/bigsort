@@ -29,16 +29,28 @@ now we have (K) sorted subset of size C.
 k-way mergesort could merge them obtaining N sorted element. 
 
 read from disk the first element of every chuck, store the min on a new file.
+
 [s,t,z] [a,b,c] [i,l,r] [d,e,m] => a
+
 [s,t,z] [c] [i,l,r] [d,e,m] => b
+
 [s,t,z] [] [i,l,r] [d,e,m] => c
+
 [s,t,z] [] [i,l,r] [d,e,m] => d
+
 [s,t,z] [] [i,l,r] [m] => e
+
 [s,t,z] [] [l,r] [m] => i
+
 [s,t,z] [] [r] [m] => l
+
 [s,t,z] [] [r] [] => m
+
 [s,t,z] [] [] [] => r
+
 [t,z] [] [] [] => s
+
 [z] [] [] [] => t
+
 [] [] [] [] => z
 
