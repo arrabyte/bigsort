@@ -1,4 +1,4 @@
-bigsort
+<h2>bigsort</h2>
 
 A sort application that allow to sort 4k blocks of data inside a blob that cannot be handled in main memory.
 
@@ -30,27 +30,39 @@ k-way mergesort could merge them obtaining N sorted element.
 
 read from disk the first element of every chuck, store the min on a new file.
 
-[s,t,z] [a,b,c] [i,l,r] [d,e,m] => a
+[s,t,z] [a,b,c] [i,l,r] [d,e,m] => a<br>
+[s,t,z] [c] [i,l,r] [d,e,m] => b<br>
+[s,t,z] [] [i,l,r] [d,e,m] => c<br>
+[s,t,z] [] [i,l,r] [d,e,m] => d<br>
+[s,t,z] [] [i,l,r] [m] => e<br>
+[s,t,z] [] [l,r] [m] => i<br>
+[s,t,z] [] [r] [m] => l<br>
+[s,t,z] [] [r] [] => m<br>
+[s,t,z] [] [] [] => r<br>
+[t,z] [] [] [] => s<br>
+[z] [] [] [] => t<br>
+[] [] [] [] => z<br>
 
-[s,t,z] [c] [i,l,r] [d,e,m] => b
 
-[s,t,z] [] [i,l,r] [d,e,m] => c
+<h2>Build</h2>
+  
+To build bigsort the seastar framework is needed.<br>
 
-[s,t,z] [] [i,l,r] [d,e,m] => d
-
-[s,t,z] [] [i,l,r] [m] => e
-
-[s,t,z] [] [l,r] [m] => i
-
-[s,t,z] [] [r] [m] => l
-
-[s,t,z] [] [r] [] => m
-
-[s,t,z] [] [] [] => r
-
-[t,z] [] [] [] => s
-
-[z] [] [] [] => t
-
-[] [] [] [] => z
-
+<pre>
+create a build folder\n
+cd build\n
+cmake .. 
+make
+</pre>
+</br></br>
+<h2>Run</h2>
+</br>
+./bigsort filename</br>
+</br>
+bigsort create a new file filename.sort in the same folder of filename.</br> 
+</br>
+<h2>Run test</h2>
+</br></br>
+<code>tests/unit_test -t test_internal_sort</code>
+<code>tests/unit_test -t test_external_sort</code>
+ 
