@@ -126,20 +126,19 @@ BOOST_AUTO_TEST_CASE( test_internal_sort ) {
 BOOST_AUTO_TEST_CASE( test_external_sort ) {
     seastar::app_template app;
     const char *argv[] = {"test_external_sort", 0};
+    static seastar::sstring fname(pattern_dir  + "/blocks_test_pattern");
 
     app.run(1, (char**)argv, [&app] {
-        seastar::sstring fname(pattern_dir  + "/blocks_test_pattern");
-
         // write sequentially the test pattern: test_pattern_sorted_set
         // that consists in three set of ordered pattern
         // to reproduce the precondition at the end of internal sort
-        return write_test_pattern(fname + ".1", 0, 4, test_pattern_sorted_set).then([fname]{
-            return write_test_pattern(fname + ".2", 4, 8, test_pattern_sorted_set).then([fname]{
-                return write_test_pattern(fname + ".3", 8, 11, test_pattern_sorted_set).then([fname]{
-                    return external_sort(fname, 3).then([fname]{
+        return write_test_pattern(fname + ".1", 0, 4, test_pattern_sorted_set).then([]{
+            return write_test_pattern(fname + ".2", 4, 8, test_pattern_sorted_set).then([]{
+                return write_test_pattern(fname + ".3", 8, 11, test_pattern_sorted_set).then([]{
+                    return external_sort(fname, 3).then([]{
                         // load sorted file and
                         blocks_vector blocks;
-                        return seastar::do_with(std::move(blocks), [fname](auto &blocks) {
+                        return seastar::do_with(std::move(blocks), [](auto &blocks) {
                             return read_blocks_from_file(fname + ".sorted", [](blocks_ptr &&x, int block_index, int blocks_tot){
                                 BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted[block_index].size(), test_pattern_sorted[block_index].begin()));
                             });
