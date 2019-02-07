@@ -57,12 +57,13 @@ make
 </br></br>
 <h2>Run</h2>
 </br>
-./bigsort filename</br>
-</br>
+<code>./bigsort filename</code>
+</br></br>
 bigsort create a new file filename.sort in the same folder of filename.</br> 
 </br>
 <h2>Run test</h2>
-</br></br>
-<code>tests/unit_test -t test_internal_sort</code>
-<code>tests/unit_test -t test_external_sort</code>
+</br>
+to setup the folder where test files are handled edit TEST_PATTERN_DIR inside test/CMakeFiles.txt</br>
+<code>tests/unit_test -t test_internal_sort</code></br>
+<code>tests/unit_test -t test_external_sort</code></br>
  
