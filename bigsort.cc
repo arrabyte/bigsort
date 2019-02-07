@@ -78,7 +78,8 @@ int main(int argc, char** argv) {
                                         << "ms" << std::endl;
                             return seastar::make_ready_future();
                         });
-                    }                    
+                    }
+                    return seastar::make_ready_future();
                 });
             }
             return seastar::make_ready_future();
