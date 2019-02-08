@@ -1,14 +1,14 @@
-#define BOOST_TEST_MODULE unit_test;
+#define SEASTAR_TESTING_MAIN
 
 #include <seastar/core/app-template.hh>
 #include <seastar/testing/test_case.hh>
 #include <seastar/core/reactor.hh>
 #include <seastar/core/shared_ptr.hh>
 #include <seastar/core/do_with.hh>
-#include <boost/test/included/unit_test.hpp>
 #include <iostream>
 #include "../sort_strategies.hh"
 #include "../file_utils.hh"
+#include "../block.hh"
 
 const std::string pattern_dir(TEST_PATTERN_DIR);
 
@@ -54,16 +54,18 @@ static std::vector<seastar::sstring> test_pattern_sorted_set({
     "algorithms and thus applicable in the external mem",
     "slower external memory, usually a hard disk drive"});
 
-void test_handle_exception(std::exception_ptr e) {
+void test_handle_exception(std::exception_ptr e, int line) {
     try {
         if (e)
             std::rethrow_exception(e);
 
     } catch(const std::exception& e) {
-        std::cout << "Caught exception \"" << e.what() << "\"\n";
+        std::cerr << "Caught exception \"" << e.what() << "\"\n";
     }
+    std::cerr << "Exception invoked from line " << line << std::endl;
     BOOST_TEST(false);
 }
+#define TEST_HANDLE_EXCEPTION test_handle_exception(e, __LINE__)
 
 using namespace sort_algorithm;
 using namespace file_utils;
@@ -93,78 +95,69 @@ seastar::future<> write_test_pattern(seastar::sstring fname,
     });
 }
 
-BOOST_AUTO_TEST_CASE( test_internal_sort ) {
-    seastar::app_template app;
-    const char *argv[] = {"test_sort", 0};
+SEASTAR_TEST_CASE( test_internal_sort ) {
+    static seastar::sstring fname(pattern_dir  + "/blocks_test_pattern");
+    static blocks_vector blocks;
+    static size_t free_mem = 4096*4; //4 blocks can be stored in memory
+   static bool check_done = false;
 
-    app.run(1, (char**)argv, [&app] {
-        static seastar::sstring fname(pattern_dir  + "/blocks_test_pattern");
-        static blocks_vector blocks;
-        static size_t free_mem = 4096*4; //4 blocks can be stored in memory
-
-        return write_test_pattern(fname).then([]() mutable {
-            return file_utils::read_blocks_from_file(fname, [](blocks_ptr &&block, int block_index, int blocks_tot){
-                blocks.push_back(std::move(block));
-                if(blocks.size() * block_size >= free_mem){
-                    //sort, save to disk and run sort on next block array
-                    sort_blocks(blocks);
-                    // check sorted subset
-                    static int i = 0;
-                    for(auto &x:blocks){
-                        BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted_set[i].size(), test_pattern_sorted_set[i].begin()));
-                        i++;
-                    }
-                    blocks.clear();
+    return write_test_pattern(fname).then([]() mutable {
+        return file_utils::read_blocks_from_file(fname, [](blocks_ptr &&block, int block_index, int blocks_tot){
+            blocks.push_back(std::move(block));
+            if(blocks.size() * block_size >= free_mem){
+                //sort, save to disk and run sort on next block array
+                sort_blocks(blocks);
+                // check sorted subset
+                static int i = 0;
+                for(auto &x:blocks){
+                    BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted_set[i].size(), test_pattern_sorted_set[i].begin()));
+                    i++;
                 }
-            });
-        }).handle_exception([](std::exception_ptr e) {
-            test_handle_exception(e);
+                blocks.clear();
+            }
         });
+    }).handle_exception([](std::exception_ptr e) {
+        TEST_HANDLE_EXCEPTION;
     });
+    BOOST_REQUIRE(check_done);
 }
 
-BOOST_AUTO_TEST_CASE( test_external_sort ) {
-    seastar::app_template app;
-    const char *argv[] = {"test_external_sort", 0};
+SEASTAR_TEST_CASE( test_external_sort ) {
     static seastar::sstring fname(pattern_dir  + "/blocks_test_pattern");
-
-    app.run(1, (char**)argv, [&app] {
-        // write sequentially the test pattern: test_pattern_sorted_set
-        // that consists in three set of ordered pattern
-        // to reproduce the precondition at the end of internal sort
-        return write_test_pattern(fname + ".1", 0, 4, test_pattern_sorted_set).then([]{
-            return write_test_pattern(fname + ".2", 4, 8, test_pattern_sorted_set).then([]{
-                return write_test_pattern(fname + ".3", 8, 11, test_pattern_sorted_set).then([]{
-                    return external_sort(fname, 3).then([]{
-                        // load sorted file and
-                        blocks_vector blocks;
-                        return seastar::do_with(std::move(blocks), [](auto &blocks) {
-                            return read_blocks_from_file(fname + ".sorted", [](blocks_ptr &&x, int block_index, int blocks_tot){
-                                BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted[block_index].size(), test_pattern_sorted[block_index].begin()));
-                            });
+    static bool check_done = false;
+    // write sequentially the test pattern: test_pattern_sorted_set
+    // that consists in three set of ordered pattern
+    // to reproduce the precondition at the end of internal sort
+    return write_test_pattern(fname + ".1", 0, 4, test_pattern_sorted_set).then([]{
+        return write_test_pattern(fname + ".2", 4, 8, test_pattern_sorted_set).then([]{
+            return write_test_pattern(fname + ".3", 8, 11, test_pattern_sorted_set).then([]{
+                return external_sort(fname, 3).then([]{
+                    // load sorted file and
+                    blocks_vector blocks;
+                    return seastar::do_with(std::move(blocks), [](auto &blocks) {
+                        return read_blocks_from_file(fname + ".sorted", [](blocks_ptr &&x, int block_index, int blocks_tot){
+                            BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted[block_index].size(), test_pattern_sorted[block_index].begin()));
+                            check_done = true;
                         });
-                        return seastar::make_ready_future<>();
                     });
+                    return seastar::make_ready_future<>();
                 });
             });
-        }).handle_exception([](std::exception_ptr e) {
-            test_handle_exception(e);
         });
+    }).handle_exception([](std::exception_ptr e) {
+        TEST_HANDLE_EXCEPTION;
     });
+    BOOST_REQUIRE(check_done);
 }
 
 // test read_blocks_from_file that read block of 4k from a file and call action at every step
-BOOST_AUTO_TEST_CASE(test_read_blocks_from_file) {
-    seastar::app_template app;
-    const char *argv[] = {"test_read_blocks_from_file", 0};
-    app.run(1, (char**)argv, [&app] {
-        seastar::sstring fname(pattern_dir  + "/test_pattern");
-        return write_test_pattern(fname).then([fname]{
-            return read_blocks_from_file(fname, [](blocks_ptr &&x, int block_index, int blocks_tot){
-                BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_unsorted[block_index].size(), test_pattern_unsorted[block_index].begin()));
-            });
-        }).handle_exception([](std::exception_ptr e) {
-            test_handle_exception(e);
+SEASTAR_TEST_CASE(test_read_blocks_from_file) {
+    static seastar::sstring fname(pattern_dir  + "/test_pattern");
+    return write_test_pattern(fname).then([]{
+        return read_blocks_from_file(fname, [](blocks_ptr &&x, int block_index, int blocks_tot){
+            BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_unsorted[block_index].size(), test_pattern_unsorted[block_index].begin()));
         });
+    }).handle_exception([](std::exception_ptr e) {
+        TEST_HANDLE_EXCEPTION;
     });
 }
