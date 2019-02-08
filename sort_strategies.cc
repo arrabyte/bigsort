@@ -1,5 +1,6 @@
 #include "sort_strategies.hh"
 #include <seastar/core/thread.hh>
+#include <boost/iterator/counting_iterator.hpp>
 #include <exception>
 #include <algorithm>
 #include <functional>

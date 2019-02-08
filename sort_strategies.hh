@@ -1,12 +1,7 @@
 #pragma once
 
-#include <seastar/core/reactor.hh>
-#include <seastar/core/file.hh>
-#include <seastar/core/sleep.hh>
-#include <boost/program_options.hpp>
-#include <boost/iterator/counting_iterator.hpp>
-#include <iostream>
-#include <memory>
+#include <seastar/core/sstring.hh>
+#include <seastar/core/future.hh>
 #include "block.hh"
 
 namespace sort_algorithm {
