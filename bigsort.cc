@@ -38,15 +38,14 @@ int main(int argc, char** argv) {
     app.run(argc, argv, [&app]{
         auto& args = app.configuration();
 
-        // memory available to load file inside memory blocks
-        const size_t memory_blocks = args["mem"].as<size_t>()/block_size*block_size;
-
         if (!args.count("filename")){
             std::cout << "bigsort filename" << '\n';
             return seastar::make_ready_future<>();
         }
 
-        static blocks_vector blocks;
+        static datablock::blocks_vector blocks;
+        // memory available to load file as memory blocks
+        const size_t memory_blocks = args["mem"].as<size_t>()/block_size*block_size;
         static size_t free_mem = std::min(seastar::memory::stats().free_memory(), memory_blocks);
         static seastar::sstring filename = (args["filename"].as<seastar::sstring>());
         static int file_index = 0;
@@ -55,12 +54,12 @@ int main(int argc, char** argv) {
 
         std::cout << "Scyllatest lexicographic sort of 4K blocks.\nAvailable memory " << free_mem/1024/1024 << " Mb\nfile size " << filename << std::endl;
 
-        return file_utils::read_blocks_from_file(filename, [](blocks_ptr &&block, int block_index, int blocks_tot){
+        return file_utils::read_blocks_from_file(filename, [](datablock::blocks_ptr &&block, int block_index, int blocks_tot){
             blocks.push_back(std::move(block));
             ++blocks_fetched;
             if(blocks.size() * block_size >= free_mem || blocks_fetched == blocks_tot){
-                //sort, save to disk and run sort on next block array
-                sort_blocks(blocks);
+                //sort and save to disk
+                datablock::sort_blocks(blocks);
                 return file_utils::write_blocks(blocks, filename + "." + std::to_string(++file_index))
                 .then([blocks_tot]() mutable {
                     std::cout << "write " << blocks.size() << " blocks on disk -- file " <<  filename + "." + std::to_string(file_index) << std::endl;

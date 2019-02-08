@@ -27,7 +27,7 @@ struct disk_block_reader
 
 struct external_sort_info
 {
-    blocks_ptr current_min_block;
+    datablock::blocks_ptr current_min_block;
     int current_min_file_index;
     std::vector<disk_block_reader> blocks_readers;
 };

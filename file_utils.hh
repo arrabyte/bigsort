@@ -1,9 +1,12 @@
 #include <seastar/core/reactor.hh>
 #include <seastar/core/file.hh>
 #include <boost/iterator/counting_iterator.hpp>
+#include "block.hh"
 #include <memory>
 
 namespace file_utils {
+
+using namespace datablock;
 
 template <typename Action>
 seastar::future<> read_blocks_from_file(seastar::sstring fname, Action action) {
