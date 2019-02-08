@@ -66,4 +66,45 @@ bigsort create a new file filename.sort in the same folder of filename.</br>
 to setup the folder where test files are handled edit TEST_PATTERN_DIR inside test/CMakeFiles.txt</br>
 <code>tests/unit_test -t test_internal_sort</code></br>
 <code>tests/unit_test -t test_external_sort</code></br>
- 
+
+<h2>Big test pattern utility</h2>
+
+To test in dept bigsort a big file to be sorted is needed.</br>
+The exe genbigfile build two patterns of ~10GB (default) up to ~60GB specifing size by cmdline, one file is ordered and the other unordered to compare bigsort results.</br>
+The pattern is build using a text binary sequence inside the block, therefore are possibile 4096^2 permutation of any block, therefore 4096^2 * block_size = 68.719.476.736 bytes as bound, but tt's easily extendible to produce any size by repeat patterns.</br> 
+<code>tests/genbigfile path</code>
+
+
+<h2>Example</h2>
+</br>
+Let's start generating a pattern of 2GB
+<pre>
+alex@wildcat:~/develop/bigsort/build_res$ ./tests/genbigfile --size 2 big2
+Start genbigfile big2 of size:2 GB -- blocks:524288
+16 Mbytes has been written
+32 Mbytes has been written
+48 Mbytes has been written
+64 Mbytes has been written
+...
+...
+2032 Mbytes has been written
+big file have been done in 162480ms
+2048 Mbytes has been written
+</pre>
+
+<pre>
+alex@wildcat:~/develop/bigsort/build_res$ ls -l big2.\*
+-rw-r--r-- 1 alex alex 2147483648 feb 11 00:50 big2.sorted
+-rw-r--r-- 1 alex alex 2147483648 feb 11 00:50 big2.unsorted
+</pre>
+
+Now sort the unsorted pattern
+<pre>
+alex@wildcat:~/develop/bigsort/build_res$ ./bigsort big2.unsorted
+bigsort lexicographic sort of 4K blocks.
+Available memory for internal sort 888 Mb
+file name big2.unsorted
+</pre>
+
+At the end is possible compare the results by diff or better by md5sum.
+

@@ -21,10 +21,8 @@ void sort_blocks(blocks_vector &blocks);
 template<class InputIt>
 blocks_ptr make_block(InputIt start_sequence, InputIt end_sequence){
     blocks_ptr tmp(std::move(seastar::allocate_aligned_buffer<unsigned char>(block_size, block_size)));
-    assert(end_sequence - start_sequence <= block_size);
-
     auto *ptr = tmp.get();
-    std::copy(start_sequence, end_sequence, ptr);
+    std::copy(start_sequence, std::min(end_sequence, start_sequence+block_size) , ptr);
     return tmp; //implicit move
 }
 
