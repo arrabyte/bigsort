@@ -20,7 +20,7 @@ seastar::future<> read_blocks_from_file(seastar::sstring fname, Action action) {
                     [f, action=std::move(action), count](auto &i) mutable {
 
                 auto rbuf = seastar::allocate_aligned_buffer<unsigned char>(block_size, block_size);
-                int pos = i*block_size;
+                size_t pos = static_cast<size_t>(i) * static_cast<size_t>(block_size);
                 auto rb = rbuf.get();
                 return f.dma_read(pos, rb, block_size)
                 .then([i, count, rbuf = std::move(rbuf), pos, action=std::move(action),f](size_t ret) mutable {

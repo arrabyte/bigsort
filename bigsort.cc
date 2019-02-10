@@ -48,12 +48,12 @@ int main(int argc, char** argv) {
 
         static seastar::sstring filename = (args["filename"].as<seastar::sstring>());
         static int file_index = 0;
-        static int blocks_fetched = 0;
+        static uint64_t blocks_fetched = 0;
         static std::chrono::time_point<std::chrono::system_clock> start_time = std::chrono::system_clock::now();
 
         std::cout << "bigsort lexicographic sort of 4K blocks.\nAvailable memory for internal sort " << free_mem/1024/1024 << " Mb\nfile name " << filename << std::endl;
 
-        return file_utils::read_blocks_from_file(filename, [](datablock::blocks_ptr &&block, int block_index, int blocks_tot){
+        return file_utils::read_blocks_from_file(filename, [](datablock::blocks_ptr &&block, uint64_t block_index, uint64_t blocks_tot){
             blocks.push_back(std::move(block));
             ++blocks_fetched;
             if(blocks.size() * block_size >= free_mem || blocks_fetched == blocks_tot){
@@ -62,8 +62,7 @@ int main(int argc, char** argv) {
                 return file_utils::write_blocks(blocks, filename + "." + std::to_string(++file_index))
                 .then([blocks_tot]() mutable {
                     std::cout << "write " << blocks.size() << " blocks on disk -- file " <<  filename + "." + std::to_string(file_index) << std::endl;
-                    blocks.clear(); //delete memory blocks
-
+                    std::vector<datablock::blocks_ptr>().swap(blocks); //delete memory blocks
                     if(blocks_fetched == blocks_tot)
                     {
                         std::cout << "internal sort done in "
