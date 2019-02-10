@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
     namespace bpo = boost::program_options;
     seastar::app_template app;
     app.add_options()
-        ("mem", boost::program_options::value<size_t>()->default_value(0x40000000), "Memory available for internal sort");
+        ("mem", boost::program_options::value<size_t>()->default_value(1000), "Memory available for internal sort expressed in MB");
     boost::program_options::positional_options_description positional_opt;
     app.add_positional_options({
        { "filename", bpo::value<seastar::sstring>(),
@@ -44,15 +44,14 @@ int main(int argc, char** argv) {
         }
 
         static datablock::blocks_vector blocks;
-        // memory available to load file as memory blocks
-        const size_t memory_blocks = args["mem"].as<size_t>()/block_size*block_size;
-        static size_t free_mem = std::min(seastar::memory::stats().free_memory(), memory_blocks);
+        static size_t free_mem = seastar::memory::stats().free_memory()/2;
+
         static seastar::sstring filename = (args["filename"].as<seastar::sstring>());
         static int file_index = 0;
         static int blocks_fetched = 0;
         static std::chrono::time_point<std::chrono::system_clock> start_time = std::chrono::system_clock::now();
 
-        std::cout << "Scyllatest lexicographic sort of 4K blocks.\nAvailable memory " << free_mem/1024/1024 << " Mb\nfile size " << filename << std::endl;
+        std::cout << "bigsort lexicographic sort of 4K blocks.\nAvailable memory for internal sort " << free_mem/1024/1024 << " Mb\nfile name " << filename << std::endl;
 
         return file_utils::read_blocks_from_file(filename, [](datablock::blocks_ptr &&block, int block_index, int blocks_tot){
             blocks.push_back(std::move(block));
@@ -86,7 +85,6 @@ int main(int argc, char** argv) {
             handle_eptr(e);
         });
     });
-
 
     return 0;
 }
