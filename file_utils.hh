@@ -38,13 +38,24 @@ seastar::future<> read_blocks_from_file(seastar::sstring fname, Action action) {
 seastar::future<> write_blocks(blocks_vector& blocks, seastar::sstring fname) {
     return seastar::open_file_dma(fname,seastar::open_flags::rw|seastar::open_flags::create|seastar::open_flags::truncate)
     .then([&blocks](seastar::file f) mutable {
-        return seastar::do_for_each(boost::counting_iterator<uint32_t>(0),
-                                    boost::counting_iterator<uint32_t>(blocks.size()),
-                                    [f, &blocks](auto& i) mutable {
-            auto wb = blocks[i].get();
-            f.dma_write(i * block_size, wb, block_size);
-        }).then([f]() mutable {
-            return f.flush().finally([f]{});
+        return seastar::do_with(seastar::semaphore(10), [f, &blocks](auto &semaphore) mutable {
+            return seastar::do_for_each(boost::counting_iterator<uint32_t>(0),
+                                        boost::counting_iterator<uint32_t>(blocks.size()),
+                                        [f, &blocks, &semaphore](auto& i) mutable {
+                return semaphore.wait(1).then([f, &blocks, i, &semaphore]() mutable {
+                    auto wb = blocks[i].get();
+                    f.dma_write(i * block_size, wb, block_size).then([f, &semaphore](auto ret){
+                        // check size
+                        return seastar::make_ready_future<>();
+                    }).finally([&semaphore] { semaphore.signal(1); });
+                });
+            }).then([f, &semaphore]() mutable {
+                return semaphore.wait(10).then([f]() mutable{
+                    return f.flush().then([f]()mutable{
+                        f.close().finally([f] {});
+                    });
+                });
+            });
         });
     });
 }
