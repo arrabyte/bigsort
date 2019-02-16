@@ -46,13 +46,12 @@ seastar::future<> write_blocks(blocks_vector& blocks, seastar::sstring fname) {
                     auto wb = blocks[i].get();
                     f.dma_write(i * block_size, wb, block_size).then([f, &semaphore](auto ret){
                         // check size
-                        return seastar::make_ready_future<>();
                     }).finally([&semaphore] { semaphore.signal(1); });
                 });
             }).then([f, &semaphore]() mutable {
                 return semaphore.wait(10).then([f]() mutable{
                     return f.flush().then([f]()mutable{
-                        f.close().finally([f] {});
+                        return f.close().finally([f] {});
                     });
                 });
             });

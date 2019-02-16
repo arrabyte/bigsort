@@ -59,7 +59,8 @@ seastar::future<> external_sort(seastar::sstring root_filename, int files_count)
                 .then([&sort_info, file_ndx](seastar::file f) mutable {
                     return f.size().then([&sort_info, f, file_ndx](size_t size) mutable {
                         // handle file size not multiple of block size by size%block_size==0
-                        sort_info.blocks_readers.push_back(std::move(disk_block_reader(std::move(f), file_ndx, size/block_size + (size%block_size==0?0:1))));
+                        sort_info.blocks_readers.emplace_back(
+                            disk_block_reader(std::move(f), file_ndx, size/block_size + (size%block_size==0?0:1)));
                         return seastar::make_ready_future();
                     });
                 });

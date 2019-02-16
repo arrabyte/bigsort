@@ -90,8 +90,11 @@ seastar::future<> write_test_pattern(seastar::sstring fname,
                 return f.dma_write( (i - start_pos) * block_size, wb, block_size).then(
                     [i, wbuf_ptr=std::move(wbuf_ptr)](size_t ret){
                         BOOST_REQUIRE(ret == 4096);
+                        return seastar::make_ready_future<>();
                     });
-            }).then([f]() mutable { f.flush();}).finally([f]{});
+            }).then([f]() mutable {
+                return f.flush().finally([f]{});
+            });
     });
 }
 
@@ -138,9 +141,9 @@ SEASTAR_TEST_CASE( test_external_sort ) {
                         return read_blocks_from_file(fname + ".sorted", [](blocks_ptr &&x, int block_index, int blocks_tot){
                             BOOST_REQUIRE(std::equal(x.get(),x.get() + test_pattern_sorted[block_index].size(), test_pattern_sorted[block_index].begin()));
                             check_done = true;
+                            return seastar::make_ready_future<>();
                         });
                     });
-                    return seastar::make_ready_future<>();
                 });
             });
         });
