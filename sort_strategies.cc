@@ -8,6 +8,8 @@
 
 namespace sort_algorithm {
 
+const int file_index_uninited(-1);
+
 struct disk_block_reader
 {
     disk_block_reader(seastar::file&& f, uint32_t findex, uint32_t num_of_blocks):
@@ -24,15 +26,33 @@ struct disk_block_reader
     uint32_t file_index;
     uint32_t block_index;
     uint32_t number_of_blocks;
+    datablock::blocks_ptr cached_block;
 };
 
 struct external_sort_info
 {
-    datablock::blocks_ptr current_min_block;
+    external_sort_info():current_min_file_index(file_index_uninited){}
     int current_min_file_index;
     std::vector<disk_block_reader> blocks_readers;
 };
 
+seastar::future<> update_cached_block(disk_block_reader& block_reader){
+
+    // get block data from cache if available
+    if(!block_reader.cached_block){
+        datablock::blocks_ptr rbuf = seastar::allocate_aligned_buffer<unsigned char>(block_size, block_size);
+        return block_reader.file.dma_read(block_reader.block_index * block_size, rbuf.get(), block_size)
+        .then([rbuf=std::move(rbuf), &block_reader](size_t ret) mutable {
+            if(ret < block_size){
+                std::cout << " Read error read " << ret << "bytes expected size is " << block_size << std::endl;
+            }
+
+            block_reader.cached_block = std::move(rbuf);
+            return seastar::make_ready_future();
+        });
+    }
+    return seastar::make_ready_future();
+};
 
 // External_sort operate by reading blocks from the head of any file involved that ware previously sorted by internal sort algo.
 // Two blocks at time are compared to keep the min value that is stored in memory at each step.
@@ -80,38 +100,30 @@ seastar::future<> external_sort(seastar::sstring root_filename, int files_count)
                     return seastar::do_for_each(sort_info.blocks_readers, [&sort_info, &block_ndx, &of] (auto& el) mutable {
                         if(el.is_hexausted())
                             return seastar::make_ready_future<>();
-                        // todo: parallel read -> cannot use current_min_block as reference. needs 4k to store block info for every file.
-                        auto rbuf = seastar::allocate_aligned_buffer<unsigned char>(block_size, block_size);
-                        auto rb = rbuf.get();
-                        int file_index = el.file_index;
-                        return el.file.dma_read(el.block_index * block_size, rb, block_size)
-                        .then([rbuf=std::move(rbuf), &sort_info, file_index](size_t ret) mutable {
-                            static int_fast64_t read = 0;
-                            if(ret < block_size){
-                                std::cout << " Read error read " << ret << "bytes expected size is " << block_size << std::endl;
-                            }
 
-                            // suppouse that current min value is lower than the new value
-                            auto first = sort_info.current_min_block.get();
-                            auto last = rbuf.get();
-                            // todo: consider block < of block size i.e at the end of file
-                            if(!sort_info.current_min_block || !std::lexicographical_compare(first, first + block_size, last, last + block_size) ){
-                                // get ownership of new min and delete previous
-                                sort_info.current_min_block = std::move(rbuf);
-                                sort_info.current_min_file_index = file_index;
-                            }
+                        return update_cached_block(el).then([&sort_info, &el]() mutable {
+                            auto first = sort_info.current_min_file_index != file_index_uninited ?
+                                         sort_info.blocks_readers[sort_info.current_min_file_index-1].cached_block.get():
+                                         nullptr;
+
+                            // suppose that current min value is lower than the new value
+                            auto last = el.cached_block.get();
+                            if(!first || !std::lexicographical_compare(first, first + block_size, last, last + block_size))
+                                    sort_info.current_min_file_index = el.file_index;
+
                             return seastar::make_ready_future();
                         });
                     }).then([&sort_info, &of, &block_ndx]{
                         // current_min_block has the min of the iteration
                         const int pos = sort_info.current_min_file_index-1;
                         sort_info.blocks_readers[pos].block_index++;
-                        sort_info.current_min_file_index = -1;
 
                         // write to out file
-                        auto wb = sort_info.current_min_block.get();
-                        return of.dma_write(block_ndx++*block_size, wb, block_size).then([&sort_info, &of, &block_ndx](size_t ret){
-                            sort_info.current_min_block.reset();
+                        auto wb = sort_info.blocks_readers[pos].cached_block.get();
+                        return of.dma_write(block_ndx++*block_size, wb, block_size).then([&sort_info, &of, &block_ndx, pos](size_t ret){
+                            sort_info.blocks_readers[pos].cached_block.reset();
+                            sort_info.current_min_file_index = file_index_uninited;
+
                             static int_fast64_t written = 0;
                             written += ret;
                             if(written % (4096*4096) == 0) //flush every 4MB
