@@ -1,6 +1,10 @@
 <h2>bigsort</h2>
 
-A sort application that allow to sort 4k blocks of data inside a blob that cannot be handled in main memory.
+A sort application that allow to sort 4k blocks of data inside a big file that cannot be handled in main memory.
+
+Bigsort is thinked to be a test application to try and leverage the <a href="https://github.com/scylladb/seastar">seastar framework</a>
+
+Future improvements could provide some usefulness to this application.
 
 bigsort handle big data using two strategy: internal and external sort.
 
@@ -8,13 +12,13 @@ In the first step the input file is partitioned and each partition is bound to m
 
 Blocks of each partition can be sorted in main memory and stored to file : filename.partition_number
 
-At the end of this phase we have a set of sorted files that need to be merged together, for this goal I've used a simple merge sort 
+At the end of this phase we have a set of sorted files that need to be merged together, for this goal I've used a simple merge sort
 
-algorithm that compare the head element of each file and get the min at each iteration.  
+algorithm that compare the head element of each file and get the min at each iteration.
 
 Example:
 
-unsorted data = [z,t,s,c,a,b,r,i,l,m,d,e] 
+unsorted data = [z,t,s,c,a,b,r,i,l,m,d,e]
 every character is a chunck of 4k, there are N element.
 
 in memory it's possible to load M chunks at time
@@ -26,7 +30,7 @@ Sort by std::stable_sort, sort or boost
 [z,t,s] [c,a,b] [r,i,l] [m,d,e] =>  [s,t,z] [a,b,c] [i,l,r] [d,e,m]
 
 now we have (K) sorted subset of size C.
-k-way mergesort could merge them obtaining N sorted element. 
+k-way mergesort could merge them obtaining N sorted element.
 
 read from disk the first element of every chuck, store the min on a new file.
 
@@ -45,13 +49,13 @@ read from disk the first element of every chuck, store the min on a new file.
 
 
 <h2>Build</h2>
-  
+
 To build bigsort the seastar framework is needed.<br>
 
 <pre>
 create a build folder\n
 cd build\n
-cmake .. 
+cmake ..
 make
 </pre>
 </br></br>
@@ -59,7 +63,7 @@ make
 </br>
 <code>./bigsort filename</code>
 </br></br>
-bigsort create a new file filename.sort in the same folder of filename.</br> 
+bigsort create a new file filename.sort in the same folder of filename.</br>
 </br>
 <h2>Run test</h2>
 </br>
@@ -71,7 +75,7 @@ to setup the folder where test files are handled edit TEST_PATTERN_DIR inside te
 
 To test in dept bigsort a big file to be sorted is needed.</br>
 The exe genbigfile build two patterns of ~10GB (default) up to ~60GB specifing size by cmdline, one file is ordered and the other unordered to compare bigsort results.</br>
-The pattern is build using a text binary sequence inside the block, therefore are possibile 4096^2 permutation of any block, therefore 4096^2 * block_size = 68.719.476.736 bytes as bound, but tt's easily extendible to produce any size by repeat patterns.</br> 
+The pattern is build using a text binary sequence inside the block, therefore are possibile 4096^2 permutation of any block, therefore 4096^2 * block_size = 68.719.476.736 bytes as bound, but tt's easily extendible to produce any size by repeat patterns.</br>
 <code>tests/genbigfile path</code>
 
 
